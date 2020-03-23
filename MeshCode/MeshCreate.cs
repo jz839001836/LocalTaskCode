@@ -10,29 +10,30 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
+[RequireComponent(typeof(MeshRenderer),typeof(MeshFilter),typeof(MeshCollider))]
 public class MeshCreate : MonoBehaviour
 {
     MeshFilter meshFilter;
     MeshRenderer meshRenderer;
     MeshCollider meshCollider;
-
+    public Mesh mesh;
 
     //存放顶点数据
     string path;
     public List<Vector3> verts;//顶点位置
     List<int> indices;  //顶点顺序
-    DataList<Vector3> rowsOfData;         //某一行的点数据
-    List<DataList<Vector3>> overAllData;  //外侧面所有的点数据,每个元素存放每行的点数据链表
-    List<DataList<Vector3>> overAllData1; //下端面所有点数据
-    List<DataList<Vector3>> overAllData2; //上端面所有点数据
-    List<DataList<Vector3>> overAllData3; //内侧面所有点数据
+    DataList rowsOfData;         //某一行的点数据
+    List<DataList> overAllData;  //外侧面所有的点数据,每个元素存放每行的点数据链表
+    List<DataList> overAllData1; //下端面所有点数据
+    List<DataList> overAllData2; //上端面所有点数据
+    List<DataList> overAllData3; //内侧面所有点数据
     
     //MergePoint所用
-    DataList<Vector3> insteadLine = new DataList<Vector3>();
-    DataList<Vector3> insteadLine1 = new DataList<Vector3>();
-    Node<Vector3> upPoint = new Node<Vector3>();      //上一行的某点
-    Node<Vector3> downPoint = new Node<Vector3>();    //下一行的某点
-    Node<Vector3> insteadPoint = new Node<Vector3>(); //用于添加替换的替换点
+    DataList insteadLine = new DataList();
+    DataList insteadLine1 = new DataList();
+    Node upPoint = new Node();      //上一行的某点
+    Node downPoint = new Node();    //下一行的某点
+    Node insteadPoint = new Node(); //用于添加替换的替换点
 
     //顶点顺序
     int downSide = 0;  //下行的顺序
@@ -41,11 +42,11 @@ public class MeshCreate : MonoBehaviour
     {
         verts = new List<Vector3>();
         indices = new List<int>();
-        rowsOfData = new DataList<Vector3>();
-        overAllData = new List<DataList<Vector3>>();
-        overAllData1 = new List<DataList<Vector3>>();
-        overAllData2 = new List<DataList<Vector3>>();
-        overAllData3 = new List<DataList<Vector3>>();
+        rowsOfData = new DataList();
+        overAllData = new List<DataList>();
+        overAllData1 = new List<DataList>();
+        overAllData2 = new List<DataList>();
+        overAllData3 = new List<DataList>();
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
         meshCollider = GetComponent<MeshCollider>();
@@ -65,7 +66,7 @@ public class MeshCreate : MonoBehaviour
         AddMeshData1(overAllData3);      //内侧面的网格划分
         NewMergePoint(overAllData1, 1);  //下端面的网格划分
         NewMergePoint(overAllData2, 2);  //上端面的网格划分
-        Mesh mesh = new Mesh();
+        mesh = new Mesh();
         mesh.vertices = verts.ToArray();
         mesh.triangles = indices.ToArray();
         mesh.RecalculateNormals();
@@ -74,7 +75,7 @@ public class MeshCreate : MonoBehaviour
         //碰撞体专用mesh，只负责物体的碰撞外形
         meshCollider.sharedMesh = mesh;
     }
-    private void AddMeshData(List<DataList<Vector3>> overData)
+    private void AddMeshData(List<DataList> overData)
     {//外侧面的网格划分
         MergePoint(overData);
         upSide += overData[1].Size;
@@ -103,7 +104,7 @@ public class MeshCreate : MonoBehaviour
         }
         downSide = upSide;
     }
-    private void AddMeshData1(List<DataList<Vector3>> overData)
+    private void AddMeshData1(List<DataList> overData)
     {//内端面的网格划分
         MergePoint(overData);
         upSide += overData[1].Size;
@@ -137,43 +138,53 @@ public class MeshCreate : MonoBehaviour
         path = @"e:\Point3.txt";
         FileStream stream = new FileStream(path, FileMode.Open);
         StreamReader reader = new StreamReader(stream);
+        Node node = new Node();
         while(!reader.EndOfStream)
         {
             string read = reader.ReadLine();
             if (read == "0")
             {//外侧面
                 overAllData.Add(rowsOfData);
-                rowsOfData = new DataList<Vector3>();
+                rowsOfData = new DataList();
                 continue;
             }
             else if (read == "1")
             {//下端面的点数据
                 overAllData1.Add(rowsOfData);
-                rowsOfData = new DataList<Vector3>();
+                rowsOfData = new DataList();
                 continue;
             }
             else if (read == "2")
             {//上端面的点数据
                 overAllData2.Add(rowsOfData);
-                rowsOfData = new DataList<Vector3>();
+                rowsOfData = new DataList();
                 continue;
             }
             else if (read == "3")
             {//内侧面的点数据
                 overAllData3.Add(rowsOfData);
-                rowsOfData = new DataList<Vector3>();
+                rowsOfData = new DataList();
                 continue;
             }
             else
             {
                 string[] arrTemp = read.Split(',');
-                Vector3 point = new Vector3(float.Parse(arrTemp[0]), float.Parse(arrTemp[1]), float.Parse(arrTemp[2]));
-                rowsOfData.Enqueue(point);
+                if (arrTemp.Length != 1)
+                {
+                    node.item = new Vector3(float.Parse(arrTemp[0]), float.Parse(arrTemp[1]), float.Parse(arrTemp[2]));
+                    continue;
+                }
+                else
+                {
+                    node.temper = float.Parse(arrTemp[0]);
+                    rowsOfData.Enqueue(node);
+                    node = new Node();
+                }
             }
         }
     }
     //向verts中添加点，若上下两层点数不同，则进行合并操作
-    private void MergePoint(List<DataList<Vector3>> overData)
+    private void MergePoint(List<DataList> overData)
     {//用于计算侧面
         int min = overData[0].Size;                    //所有顶点行中点数量最小的数量
         int minLine = 0;                                  //顶点行中点数量最小的一行
@@ -191,8 +202,8 @@ public class MeshCreate : MonoBehaviour
             int insteadMin = min;
             if (overData[downCount].Size == min)
                 continue;  //如果点数据数量与最小量相同，则不需要进行合并
-            insteadLine = new DataList<Vector3>();
-            insteadLine.Enqueue(overData[downCount].first.item);//先向insteadLine插入第一个点
+            insteadLine = new DataList();
+            insteadLine.Enqueue(overData[downCount].first);//先向insteadLine插入第一个点
             upPoint = overData[downCount + 1].first.next; //上一行点击的第二个点开始
             downPoint = overData[downCount].first.next;   //下一行点集的第二个点开始
             int downNum = overData[downCount].Size - 1;  //当前进行合并行的剩余点数量
@@ -201,7 +212,7 @@ public class MeshCreate : MonoBehaviour
                 if (downPoint.next == null)
                 {//当downPoint为最后一个点时，直接插入insteadLine;
                     upPoint = upPoint.next;
-                    insteadLine.Enqueue(downPoint.item);
+                    insteadLine.Enqueue(downPoint);
                 }
                 if (Distance2(downPoint.item, upPoint.item) >=
                    Distance2(downPoint.next.item, upPoint.item))
@@ -213,7 +224,7 @@ public class MeshCreate : MonoBehaviour
                 {
                     upPoint = upPoint.next;
                     insteadMin--;
-                    insteadLine.Enqueue(downPoint.item);
+                    insteadLine.Enqueue(downPoint);
                     downPoint = downPoint.next;
                     downNum--;
                 }
@@ -221,7 +232,7 @@ public class MeshCreate : MonoBehaviour
                 {
                     while (downPoint != null)
                     {
-                        insteadLine.Enqueue(downPoint.item);
+                        insteadLine.Enqueue(downPoint);
                         downPoint = downPoint.next;
                         upPoint = upPoint.next;
                     }
@@ -235,8 +246,8 @@ public class MeshCreate : MonoBehaviour
             int insteadMin = min;
             if (overData[upCount].Size == min)
                 continue;
-            insteadLine = new DataList<Vector3>();
-            insteadLine.Enqueue(overData[upCount].first.item);
+            insteadLine = new DataList();
+            insteadLine.Enqueue(overData[upCount].first);
             upPoint = overData[upCount].first.next;        //上一行点集的第二个点开始
             downPoint = overData[upCount - 1].first.next;  //下一行点集的第二个点开始
             int upNum = overData[upCount].Size - 1;
@@ -245,7 +256,7 @@ public class MeshCreate : MonoBehaviour
                 if (upPoint.next == null)
                 {//当upPoint为最后一个点时，直接插入insteadLine;
                     downPoint = downPoint.next;
-                    insteadLine.Enqueue(upPoint.item);
+                    insteadLine.Enqueue(upPoint);
                 }
                 if(Distance2(upPoint.item,downPoint.item)>=
                    Distance2(upPoint.next.item,downPoint.item))
@@ -257,7 +268,7 @@ public class MeshCreate : MonoBehaviour
                 {
                     downPoint = downPoint.next;
                     insteadMin--;
-                    insteadLine.Enqueue(upPoint.item);
+                    insteadLine.Enqueue(upPoint);
                     upPoint = upPoint.next;
                     upNum--;
                 }
@@ -265,7 +276,7 @@ public class MeshCreate : MonoBehaviour
                 {
                     while (upPoint != null)
                     {
-                        insteadLine.Enqueue(upPoint.item);
+                        insteadLine.Enqueue(upPoint);
                         upPoint = upPoint.next;
                         downPoint = downPoint.next;
                     }
@@ -285,19 +296,19 @@ public class MeshCreate : MonoBehaviour
         }
     }
 
-    private void NewMergePoint(List<DataList<Vector3>> overData,int mark)
+    private void NewMergePoint(List<DataList> overData,int mark)
     {//用于计算端面，mark为1时，下端面；2时，上端面
         int upNum;
         int downNum;
         Vector3 center = CenterOfCircle(overData);
         for (int i = 0; i < overData.Count; i++)
         {
-            insteadLine = new DataList<Vector3>();
-            insteadLine1 = new DataList<Vector3>();
+            insteadLine = new DataList();
+            insteadLine1 = new DataList();
             if (i == overData.Count - 1)
             {//当i为最后一行时，最后一行要与第一行划分三角
-                insteadLine.Enqueue(overData[i].first.item);
-                insteadLine1.Enqueue(overData[0].first.item);
+                insteadLine.Enqueue(overData[i].first);
+                insteadLine1.Enqueue(overData[0].first);
                 upPoint = overData[0].first.next;
                 downPoint = overData[i].first.next;
                 upNum = overData[0].Size - 1;
@@ -305,8 +316,8 @@ public class MeshCreate : MonoBehaviour
             }
             else
             {
-                insteadLine.Enqueue(overData[i].first.item);      //下行的点
-                insteadLine1.Enqueue(overData[i + 1].first.item); //上行的点
+                insteadLine.Enqueue(overData[i].first);      //下行的点
+                insteadLine1.Enqueue(overData[i + 1].first); //上行的点
                 upPoint = overData[i + 1].first.next;
                 downPoint = overData[i].first.next;
                 upNum = overData[i + 1].Size - 1;    //待合并的点数量
@@ -319,7 +330,7 @@ public class MeshCreate : MonoBehaviour
                     if (downPoint.next == null)
                     {
                         upPoint = upPoint.next;
-                        insteadLine.Enqueue(downPoint.item);
+                        insteadLine.Enqueue(downPoint);
                     }
                     if (P2PDistance(downPoint.item, upPoint.item,center) >
                        P2PDistance(downPoint.next.item, upPoint.item,center))
@@ -329,10 +340,10 @@ public class MeshCreate : MonoBehaviour
                     }
                     else
                     {
-                        insteadLine1.Enqueue(upPoint.item);
+                        insteadLine1.Enqueue(upPoint);
                         upPoint = upPoint.next;
                         upNum--;
-                        insteadLine.Enqueue(downPoint.item);
+                        insteadLine.Enqueue(downPoint);
                         downPoint = downPoint.next;
                         downNum--;
                     }
@@ -340,8 +351,8 @@ public class MeshCreate : MonoBehaviour
                     {
                         while (downPoint != null)
                         {
-                            insteadLine.Enqueue(downPoint.item);
-                            insteadLine1.Enqueue(upPoint.item);
+                            insteadLine.Enqueue(downPoint);
+                            insteadLine1.Enqueue(upPoint);
                             downPoint = downPoint.next;
                             upPoint = upPoint.next;
                         }
@@ -355,7 +366,7 @@ public class MeshCreate : MonoBehaviour
                     if (upPoint.next == null)
                     {
                         downPoint = downPoint.next;
-                        insteadLine1.Enqueue(upPoint.item);
+                        insteadLine1.Enqueue(upPoint);
                     }
                     if (P2PDistance(upPoint.item, downPoint.item,center)
                       > P2PDistance(upPoint.next.item, downPoint.item,center))
@@ -365,8 +376,8 @@ public class MeshCreate : MonoBehaviour
                     }
                     else
                     {
-                        insteadLine.Enqueue(downPoint.item);
-                        insteadLine1.Enqueue(upPoint.item);
+                        insteadLine.Enqueue(downPoint);
+                        insteadLine1.Enqueue(upPoint);
                         upPoint = upPoint.next;
                         downPoint = downPoint.next;
                         upNum--;
@@ -376,8 +387,8 @@ public class MeshCreate : MonoBehaviour
                     {
                         while (downPoint != null)
                         {
-                            insteadLine.Enqueue(downPoint.item);
-                            insteadLine1.Enqueue(upPoint.item);
+                            insteadLine.Enqueue(downPoint);
+                            insteadLine1.Enqueue(upPoint);
                             downPoint = downPoint.next;
                             upPoint = upPoint.next;
                         }
@@ -388,8 +399,8 @@ public class MeshCreate : MonoBehaviour
             {
                 while (downPoint != null)
                 {
-                    insteadLine.Enqueue(downPoint.item);
-                    insteadLine1.Enqueue(upPoint.item);
+                    insteadLine.Enqueue(downPoint);
+                    insteadLine1.Enqueue(upPoint);
                     downPoint = downPoint.next;
                     upPoint = upPoint.next;
                 }
@@ -399,7 +410,7 @@ public class MeshCreate : MonoBehaviour
         }
         
     }
-    private void AddMerge(DataList<Vector3> lns0,DataList<Vector3> lns1,int mark)
+    private void AddMerge(DataList lns0,DataList lns1,int mark)
     {
         //点插入verts中,lns0为下行点，lns1为上行点
         upSide += lns0.Size;
@@ -407,7 +418,7 @@ public class MeshCreate : MonoBehaviour
         List<int> breakpoint = new List<int>();   //断点，其与下一个点之间的网格不需要画出来
         while(insteadPoint!=null)
         {
-            //if(Vector3.Distance(insteadPoint.item,insteadPoint.next.item)>某个值)
+            //if(insteadPoint.next!=null && Vector3.Distance(insteadPoint.item,insteadPoint.next.item)>某个值)
             //    breakpoint.Add(verts.Count);
             verts.Add(insteadPoint.item);
             insteadPoint = insteadPoint.next;
@@ -484,7 +495,7 @@ public class MeshCreate : MonoBehaviour
         else
             return -ins;
     }
-    private Vector3 CenterOfCircle(List<DataList<Vector3>> overData)
+    private Vector3 CenterOfCircle(List<DataList> overData)
     {
         int N = overData.Count / 3;
         Vector3 point1 = overData[0].last.item;

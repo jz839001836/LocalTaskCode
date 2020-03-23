@@ -9,13 +9,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class DataList<Item>
+public class DataList
 {
-    public Node<Item> first; //头节点
-    public Node<Item> last;  //尾节点
+    public Node first; //头节点
+    public Node last;  //尾节点
     public int N;      //元素个数
 
-    public Node<Item> Last
+    public Node Last
     {
         get { return last; }
     }
@@ -29,17 +29,18 @@ public class DataList<Item>
     /// 元素插入
     /// </summary>
     /// <param name="item"></param>
-    public void Enqueue(Item item)
+    public void Enqueue(Node node)
     {
-        Node<Item> oldlast = last;
-        last = new Node<Item>();
-        last.item = item;
+        Node oldlast = last;
+        last = new Node();
+        last.item = node.item;
+        last.temper = node.temper;
         last.next = null;
         if (IsEmpty()) first = last;
         else oldlast.next = last;
         N++;
     }
-    public void Delete(Node<Item> node)
+    public void Delete(Node node)
     {
         node.item = node.next.item;
         node.next = node.next.next;

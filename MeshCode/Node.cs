@@ -9,8 +9,9 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Node<Item>
+public class Node
 {
-    public Item item;
-    public Node<Item> next;
+    public Vector3 item;
+    public float temper;
+    public Node next;
 }
