@@ -8,7 +8,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+/// <summary>
+/// 存放点数据的链表
+/// </summary>
 public class DataList
 {
     public Node first; //头节点
@@ -33,8 +35,15 @@ public class DataList
     {
         Node oldlast = last;
         last = new Node();
-        last.item = node.item;
+        last.pos = node.pos;
         last.temper = node.temper;
+        last.burnRate = node.burnRate;
+        last.density = node.density;
+        last.judgeEdgePoint = node.judgeEdgePoint;
+        last.flowVelocity = node.flowVelocity;
+        last.judgeDisappear = node.judgeDisappear;
+        last.judgeEdge = node.judgeEdge;
+        last.staticPressure = node.staticPressure;
         last.next = null;
         if (IsEmpty()) first = last;
         else oldlast.next = last;
@@ -42,7 +51,15 @@ public class DataList
     }
     public void Delete(Node node)
     {
-        node.item = node.next.item;
+        node.pos = node.next.pos;
+        node.temper = node.next.temper;
+        node.burnRate = node.next.burnRate;
+        node.density = node.next.density;
+        node.judgeEdgePoint = node.next.judgeEdgePoint;
+        node.flowVelocity = node.next.flowVelocity;
+        node.judgeDisappear = node.next.judgeDisappear;
+        node.judgeEdge = node.next.judgeEdge;
+        node.staticPressure = node.next.staticPressure;
         node.next = node.next.next;
         N--;
     }

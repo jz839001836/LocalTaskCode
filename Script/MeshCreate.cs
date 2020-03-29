@@ -18,6 +18,8 @@ public class MeshCreate : MonoBehaviour
     MeshCollider meshCollider;
     public Mesh mesh;
 
+    Data data;
+
     //存放顶点数据
     string path;
     public List<Vector3> verts;//顶点位置
@@ -40,6 +42,8 @@ public class MeshCreate : MonoBehaviour
     int upSide;    //上行的顺序
     void Start()
     {
+        data = new Data();
+
         verts = new List<Vector3>();
         indices = new List<int>();
         rowsOfData = new DataList();
@@ -59,7 +63,8 @@ public class MeshCreate : MonoBehaviour
     private void Generate()
     {
         //读取数据
-        ReadData();
+        //ReadData();
+        data.Read();
         Vector3 center = CenterOfCircle(overAllData2);
         //填写数据
         AddMeshData(overAllData);        //外侧面的网格划分
@@ -133,56 +138,56 @@ public class MeshCreate : MonoBehaviour
         }
         downSide = upSide;
     }
-    private void ReadData()
-    {
-        path = @"e:\Point3.txt";
-        FileStream stream = new FileStream(path, FileMode.Open);
-        StreamReader reader = new StreamReader(stream);
-        Node node = new Node();
-        while(!reader.EndOfStream)
-        {
-            string read = reader.ReadLine();
-            if (read == "0")
-            {//外侧面
-                overAllData.Add(rowsOfData);
-                rowsOfData = new DataList();
-                continue;
-            }
-            else if (read == "1")
-            {//下端面的点数据
-                overAllData1.Add(rowsOfData);
-                rowsOfData = new DataList();
-                continue;
-            }
-            else if (read == "2")
-            {//上端面的点数据
-                overAllData2.Add(rowsOfData);
-                rowsOfData = new DataList();
-                continue;
-            }
-            else if (read == "3")
-            {//内侧面的点数据
-                overAllData3.Add(rowsOfData);
-                rowsOfData = new DataList();
-                continue;
-            }
-            else
-            {
-                string[] arrTemp = read.Split(',');
-                if (arrTemp.Length != 1)
-                {
-                    node.item = new Vector3(float.Parse(arrTemp[0]), float.Parse(arrTemp[1]), float.Parse(arrTemp[2]));
-                    continue;
-                }
-                else
-                {
-                    node.temper = float.Parse(arrTemp[0]);
-                    rowsOfData.Enqueue(node);
-                    node = new Node();
-                }
-            }
-        }
-    }
+    //private void ReadData()
+    //{
+    //    path = @"e:\Point3.txt";
+    //    FileStream stream = new FileStream(path, FileMode.Open);
+    //    StreamReader reader = new StreamReader(stream);
+    //    Node node = new Node();
+    //    while(!reader.EndOfStream)
+    //    {
+    //        string read = reader.ReadLine();
+    //        if (read == "0")
+    //        {//外侧面
+    //            overAllData.Add(rowsOfData);
+    //            rowsOfData = new DataList();
+    //            continue;
+    //        }
+    //        else if (read == "1")
+    //        {//下端面的点数据
+    //            overAllData1.Add(rowsOfData);
+    //            rowsOfData = new DataList();
+    //            continue;
+    //        }
+    //        else if (read == "2")
+    //        {//上端面的点数据
+    //            overAllData2.Add(rowsOfData);
+    //            rowsOfData = new DataList();
+    //            continue;
+    //        }
+    //        else if (read == "3")
+    //        {//内侧面的点数据
+    //            overAllData3.Add(rowsOfData);
+    //            rowsOfData = new DataList();
+    //            continue;
+    //        }
+    //        else
+    //        {
+    //            string[] arrTemp = read.Split(',');
+    //            if (arrTemp.Length != 1)
+    //            {
+    //                node.pos = new Vector3(float.Parse(arrTemp[0]), float.Parse(arrTemp[1]), float.Parse(arrTemp[2]));
+    //                continue;
+    //            }
+    //            else
+    //            {
+    //                node.temper = float.Parse(arrTemp[0]);
+    //                rowsOfData.Enqueue(node);
+    //                node = new Node();
+    //            }
+    //        }
+    //    }
+    //}
     //向verts中添加点，若上下两层点数不同，则进行合并操作
     private void MergePoint(List<DataList> overData)
     {//用于计算侧面
@@ -214,8 +219,8 @@ public class MeshCreate : MonoBehaviour
                     upPoint = upPoint.next;
                     insteadLine.Enqueue(downPoint);
                 }
-                if (Distance2(downPoint.item, upPoint.item) >=
-                   Distance2(downPoint.next.item, upPoint.item))
+                if (Distance2(downPoint.pos, upPoint.pos) >=
+                   Distance2(downPoint.next.pos, upPoint.pos))
                 {//点集的合并，选择最优点，删除不必要的点
                     downPoint = downPoint.next;
                     downNum--;
@@ -258,8 +263,8 @@ public class MeshCreate : MonoBehaviour
                     downPoint = downPoint.next;
                     insteadLine.Enqueue(upPoint);
                 }
-                if(Distance2(upPoint.item,downPoint.item)>=
-                   Distance2(upPoint.next.item,downPoint.item))
+                if(Distance2(upPoint.pos,downPoint.pos)>=
+                   Distance2(upPoint.next.pos,downPoint.pos))
                 {
                     upPoint = upPoint.next;
                     upNum--;
@@ -290,7 +295,7 @@ public class MeshCreate : MonoBehaviour
             insteadPoint = overData[i].first;
             while (insteadPoint != null)
             {
-                verts.Add(insteadPoint.item);
+                verts.Add(insteadPoint.pos);
                 insteadPoint = insteadPoint.next;
             }
         }
@@ -332,8 +337,8 @@ public class MeshCreate : MonoBehaviour
                         upPoint = upPoint.next;
                         insteadLine.Enqueue(downPoint);
                     }
-                    if (P2PDistance(downPoint.item, upPoint.item,center) >
-                       P2PDistance(downPoint.next.item, upPoint.item,center))
+                    if (P2PDistance(downPoint.pos, upPoint.pos,center) >
+                       P2PDistance(downPoint.next.pos, upPoint.pos,center))
                     {//点合并的依据
                         downPoint = downPoint.next;
                         downNum--;
@@ -368,8 +373,8 @@ public class MeshCreate : MonoBehaviour
                         downPoint = downPoint.next;
                         insteadLine1.Enqueue(upPoint);
                     }
-                    if (P2PDistance(upPoint.item, downPoint.item,center)
-                      > P2PDistance(upPoint.next.item, downPoint.item,center))
+                    if (P2PDistance(upPoint.pos, downPoint.pos,center)
+                      > P2PDistance(upPoint.next.pos, downPoint.pos,center))
                     {
                         upPoint = upPoint.next;
                         upNum--;
@@ -420,13 +425,13 @@ public class MeshCreate : MonoBehaviour
         {
             //if(insteadPoint.next!=null && Vector3.Distance(insteadPoint.item,insteadPoint.next.item)>某个值)
             //    breakpoint.Add(verts.Count);
-            verts.Add(insteadPoint.item);
+            verts.Add(insteadPoint.pos);
             insteadPoint = insteadPoint.next;
         }
         insteadPoint = lns1.first;
         while (insteadPoint != null)
         {
-            verts.Add(insteadPoint.item);
+            verts.Add(insteadPoint.pos);
             insteadPoint = insteadPoint.next;
         }
         int index0, index1, index2, index3;
@@ -435,7 +440,7 @@ public class MeshCreate : MonoBehaviour
             for (int i = 0; i < lns0.Size - 1; i++)
             {
                 if (breakpoint.Count != 0)
-                {
+                {//判断该点是不是断点
                     for (int j = 0; j < breakpoint.Count; j++)
                     {
                         if (downSide == breakpoint[j])
@@ -482,7 +487,7 @@ public class MeshCreate : MonoBehaviour
         upSide++;
     }
     private float Distance2(Vector3 p,Vector3 q)
-    {//用于外侧面和内侧面的点合并
+    {//用于外侧面和内侧面的点合并的距离计算
         return (p.x - q.x) * (p.x - q.x)
              + (p.y - q.y) * (p.y - q.y)
              + (p.z - q.z) * (p.z - q.z);
@@ -498,9 +503,9 @@ public class MeshCreate : MonoBehaviour
     private Vector3 CenterOfCircle(List<DataList> overData)
     {
         int N = overData.Count / 3;
-        Vector3 point1 = overData[0].last.item;
-        Vector3 point2 = overData[N].last.item;
-        Vector3 point3 = overData[2 * N].last.item;
+        Vector3 point1 = overData[0].last.pos;
+        Vector3 point2 = overData[N].last.pos;
+        Vector3 point3 = overData[2 * N].last.pos;
         Vector3 centerPoint = new Vector3();
         float a1, b1, c1, d1;
         float a2, b2, c2, d2;
