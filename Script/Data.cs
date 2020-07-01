@@ -12,9 +12,9 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 
-public class Data:MonoBehaviour
+public class Data
 {
-    string fileName = @"E:\SubjectData\5_step0.pbsi";
+    string fileName = UnityEditor.EditorUtility.OpenFilePanel("打开文件", "", "pbsi");
     BinaryReader read;
     public int step;            //推移的步数
     public double stepLength;   //推移单位时间步长
@@ -22,9 +22,9 @@ public class Data:MonoBehaviour
     public double thick;        //装药头部燃去的肉厚
     public int N_sacestep;      //每隔N_savestep-1个推移步保存一次点数据
     private int chargeNameByte; //装药名称字节数
-    public char[] chargeName;   //装药名称
+    public string chargeName;   //装药名称
     private int typeNameByte;   //装药类型名称字节数
-    public char[] typeName;     //装药类型名称
+    public string typeName;     //装药类型名称
 
     //如果此时读取到的装药类型名称为“自定义”
     //则存储文件中会多出下面大括号内的存储内容，这才是其命名的自定义装药的装药类型名称
@@ -63,14 +63,10 @@ public class Data:MonoBehaviour
     Node point;
     DataList datalist;
     public List<DataList>[] faceData;
-    int faceNum = 0;
     byte[] buffer;
-    void Start()
-    {
-
-    }
     public void Read()
     {
+        int faceNum = 0;
         datalist = new DataList();
         faceData = new List<DataList>[4];
         if (File.Exists(fileName))
@@ -84,13 +80,14 @@ public class Data:MonoBehaviour
                 N_sacestep = read.ReadInt32();
 
                 chargeNameByte = read.ReadInt32();
-                chargeName = new char[chargeNameByte];
-                chargeName = read.ReadChars(chargeNameByte );
-
-
+                buffer = new byte[chargeNameByte];
+                read.Read(buffer, 0, buffer.Length);
+                chargeName = Encoding.Default.GetString(buffer);
+            
                 typeNameByte = read.ReadInt32();
-                typeName = new char[typeNameByte];
-                typeName = read.ReadChars(typeNameByte);
+                buffer = new byte[typeNameByte];
+                read.Read(buffer, 0, buffer.Length);
+                typeName = Encoding.Default.GetString(buffer);
 
                 propellantTypeNameByte = read.ReadInt32();
                 buffer = new byte[propellantTypeNameByte];
@@ -117,19 +114,20 @@ public class Data:MonoBehaviour
                 third = read.ReadBoolean();
                 if (n_face == 4)
                     fourth = read.ReadBoolean();
-                while (read.PeekChar() > -1)
+                faceData[faceNum] = new List<DataList>();
+                while (read.BaseStream.Position < read.BaseStream.Length )
                 {
                     point = new Node();
 
                     float a = (float)read.ReadDouble();
                     float b = (float)read.ReadDouble();
                     float c = (float)read.ReadDouble();
-                    point.pos = new Vector3(a, b, c);
+                    point.pos = new Vector3(a, c, b);
 
                     a = (float)read.ReadDouble();
                     b = (float)read.ReadDouble();
                     c = (float)read.ReadDouble();
-                    point.nor = new Vector3(a, b, c);
+                    point.nor = new Vector3(a, c, b);
 
                     point.judgeEdgePoint = read.ReadBoolean();
                     point.judgeDisappear = read.ReadInt16();
@@ -146,9 +144,11 @@ public class Data:MonoBehaviour
                     }
                     else if (point.judgeEdge == -2)
                     {
-                        faceData[faceNum].Add(datalist);
                         faceNum++;
                         datalist = new DataList();
+                        if (faceNum > n_face - 1)
+                            break;
+                        faceData[faceNum] = new List<DataList>();
                     }
                     else
                     {
@@ -157,5 +157,6 @@ public class Data:MonoBehaviour
                 }
             }
         }
+
     }
 }

@@ -15,6 +15,7 @@ public class DataList
 {
     public Node first; //头节点
     public Node last;  //尾节点
+    public Node oldlast; //尾节点的上一个节点
     public int N;      //元素个数
 
     public Node Last
@@ -33,7 +34,7 @@ public class DataList
     /// <param name="item"></param>
     public void Enqueue(Node node)
     {
-        Node oldlast = last;
+        oldlast = last;
         last = new Node();
         last.pos = node.pos;
         last.temper = node.temper;

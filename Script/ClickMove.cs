@@ -14,24 +14,23 @@ public class ClickMove : MonoBehaviour
     private float offsetX = 0;
     private float offsetY = 0;
     public float speed = 6f;
-    void Start()
-    {
-        
-    }
+    public float sensitivityMouse = 2f;
+    public float sensitivetyKeyBoard = 1f;
+    public float sensitivetyMouseWheel = 10f;
 
     void Update()
     {
         if(Input.GetAxis("Mouse ScrollWheel") < 0 )
         {
             if (Camera.main.fieldOfView <= 100)
-                Camera.main.fieldOfView += 2;
+                Camera.main.fieldOfView += 5;
             else if (Camera.main.fieldOfView <= 20)
                 Camera.main.fieldOfView += 0.5f;
         }
         if(Input.GetAxis("Mouse ScrollWheel")>0)
         {
             if (Camera.main.fieldOfView > 2)
-                Camera.main.fieldOfView -= 2;
+                Camera.main.fieldOfView -= 5;
             else if (Camera.main.fieldOfView >= 1)
                 Camera.main.fieldOfView -= 0.5f;
         }
@@ -42,7 +41,19 @@ public class ClickMove : MonoBehaviour
             transform.Rotate(new Vector3(offsetY, -offsetX, 0) * speed, Space.World);
         }
     }
+    void MouseMove()
+    {
 
+        //键盘按钮←/a和→/d实现视角水平移动，键盘按钮↑/w和↓/s实现视角水平旋转
+        if (Input.GetAxis("Horizontal") != 0)
+        {
+            transform.Translate(Input.GetAxis("Horizontal") * sensitivetyKeyBoard, 0, 0);
+        }
+        if (Input.GetAxis("Vertical") != 0)
+        {
+            transform.Translate(0, Input.GetAxis("Vertical") * sensitivetyKeyBoard, 0);
+        }
+    }
     //private IEnumerator OnMouseDown()
     //{
     //    Vector3 screenSpace = Camera.main.WorldToScreenPoint(transform.position);

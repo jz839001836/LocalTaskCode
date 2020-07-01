@@ -5,6 +5,7 @@
 脚本功能：
 版本号：
 */
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -24,6 +25,8 @@ public class MeshCreate : MonoBehaviour
     string path;
     public List<Vector3> verts;//顶点位置
     List<int> indices;  //顶点顺序
+    List<Color> colors; //顶点颜色
+
     DataList rowsOfData;         //某一行的点数据
     List<DataList> overAllData;  //外侧面所有的点数据,每个元素存放每行的点数据链表
     List<DataList> overAllData1; //下端面所有点数据
@@ -40,12 +43,15 @@ public class MeshCreate : MonoBehaviour
     //顶点顺序
     int downSide = 0;  //下行的顺序
     int upSide;    //上行的顺序
-    void Start()
-    {
-        data = new Data();
 
+    float maxPoint;    //某个值最大的点
+    float minPoint;    //某个值最小的点
+    private void Start()
+    {
         verts = new List<Vector3>();
         indices = new List<int>();
+        colors = new List<Color>();
+
         rowsOfData = new DataList();
         overAllData = new List<DataList>();
         overAllData1 = new List<DataList>();
@@ -64,16 +70,22 @@ public class MeshCreate : MonoBehaviour
     {
         //读取数据
         //ReadData();
+        data = new Data();
         data.Read();
-        Vector3 center = CenterOfCircle(overAllData2);
+        CalMaxAndMin();
+
         //填写数据
-        AddMeshData(overAllData);        //外侧面的网格划分
-        AddMeshData1(overAllData3);      //内侧面的网格划分
-        NewMergePoint(overAllData1, 1);  //下端面的网格划分
-        NewMergePoint(overAllData2, 2);  //上端面的网格划分
+        AddMeshData(data.faceData[1]);        //外侧面的网格划分
+        if (data.faceData[3] != null)
+        {
+            AddMeshData1(data.faceData[3]);      //内侧面的网格划分
+        }
+        NewMergePoint(data.faceData[0], 1);  //下端面的网格划分
+        NewMergePoint(data.faceData[2], 2);  //上端面的网格划分
         mesh = new Mesh();
         mesh.vertices = verts.ToArray();
         mesh.triangles = indices.ToArray();
+        mesh.colors = colors.ToArray();
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         meshFilter.mesh = mesh;
@@ -138,56 +150,6 @@ public class MeshCreate : MonoBehaviour
         }
         downSide = upSide;
     }
-    //private void ReadData()
-    //{
-    //    path = @"e:\Point3.txt";
-    //    FileStream stream = new FileStream(path, FileMode.Open);
-    //    StreamReader reader = new StreamReader(stream);
-    //    Node node = new Node();
-    //    while(!reader.EndOfStream)
-    //    {
-    //        string read = reader.ReadLine();
-    //        if (read == "0")
-    //        {//外侧面
-    //            overAllData.Add(rowsOfData);
-    //            rowsOfData = new DataList();
-    //            continue;
-    //        }
-    //        else if (read == "1")
-    //        {//下端面的点数据
-    //            overAllData1.Add(rowsOfData);
-    //            rowsOfData = new DataList();
-    //            continue;
-    //        }
-    //        else if (read == "2")
-    //        {//上端面的点数据
-    //            overAllData2.Add(rowsOfData);
-    //            rowsOfData = new DataList();
-    //            continue;
-    //        }
-    //        else if (read == "3")
-    //        {//内侧面的点数据
-    //            overAllData3.Add(rowsOfData);
-    //            rowsOfData = new DataList();
-    //            continue;
-    //        }
-    //        else
-    //        {
-    //            string[] arrTemp = read.Split(',');
-    //            if (arrTemp.Length != 1)
-    //            {
-    //                node.pos = new Vector3(float.Parse(arrTemp[0]), float.Parse(arrTemp[1]), float.Parse(arrTemp[2]));
-    //                continue;
-    //            }
-    //            else
-    //            {
-    //                node.temper = float.Parse(arrTemp[0]);
-    //                rowsOfData.Enqueue(node);
-    //                node = new Node();
-    //            }
-    //        }
-    //    }
-    //}
     //向verts中添加点，若上下两层点数不同，则进行合并操作
     private void MergePoint(List<DataList> overData)
     {//用于计算侧面
@@ -289,13 +251,14 @@ public class MeshCreate : MonoBehaviour
             }
             overData[upCount] = insteadLine;
         }
-        //将点数据输入到verst中
+        //将点数据输入到verts中
         for (int i=0;i<overData.Count;i++)
         {
             insteadPoint = overData[i].first;
             while (insteadPoint != null)
             {
                 verts.Add(insteadPoint.pos);
+                colors.Add(Color.Lerp(Color.red, Color.blue, CalInterpolate(maxPoint, minPoint, (float)insteadPoint.temper)));
                 insteadPoint = insteadPoint.next;
             }
         }
@@ -305,7 +268,8 @@ public class MeshCreate : MonoBehaviour
     {//用于计算端面，mark为1时，下端面；2时，上端面
         int upNum;
         int downNum;
-        Vector3 center = CenterOfCircle(overData);
+        Vector3 center = overData[0].last.pos;
+        Vector3 centerPoint = new Vector3(0, center.y, 0);
         for (int i = 0; i < overData.Count; i++)
         {
             insteadLine = new DataList();
@@ -337,8 +301,8 @@ public class MeshCreate : MonoBehaviour
                         upPoint = upPoint.next;
                         insteadLine.Enqueue(downPoint);
                     }
-                    if (P2PDistance(downPoint.pos, upPoint.pos,center) >
-                       P2PDistance(downPoint.next.pos, upPoint.pos,center))
+                    if (P2PDistance(downPoint.pos, upPoint.pos,centerPoint) >
+                       P2PDistance(downPoint.next.pos, upPoint.pos,centerPoint))
                     {//点合并的依据
                         downPoint = downPoint.next;
                         downNum--;
@@ -373,8 +337,8 @@ public class MeshCreate : MonoBehaviour
                         downPoint = downPoint.next;
                         insteadLine1.Enqueue(upPoint);
                     }
-                    if (P2PDistance(upPoint.pos, downPoint.pos,center)
-                      > P2PDistance(upPoint.next.pos, downPoint.pos,center))
+                    if (P2PDistance(upPoint.pos, downPoint.pos,centerPoint)
+                      > P2PDistance(upPoint.next.pos, downPoint.pos,centerPoint))
                     {
                         upPoint = upPoint.next;
                         upNum--;
@@ -420,18 +384,21 @@ public class MeshCreate : MonoBehaviour
         //点插入verts中,lns0为下行点，lns1为上行点
         upSide += lns0.Size;
         insteadPoint = lns0.first;
+        float distance = Vector3.Distance(lns0.last.pos, lns0.oldlast.pos);
         List<int> breakpoint = new List<int>();   //断点，其与下一个点之间的网格不需要画出来
         while(insteadPoint!=null)
         {
-            //if(insteadPoint.next!=null && Vector3.Distance(insteadPoint.item,insteadPoint.next.item)>某个值)
-            //    breakpoint.Add(verts.Count);
+            //if(insteadPoint.next!=null && Vector3.Distance(insteadPoint.pos,insteadPoint.next.pos) > distance)
+            //  breakpoint.Add(verts.Count);
             verts.Add(insteadPoint.pos);
+            colors.Add(Color.Lerp(Color.red, Color.blue, CalInterpolate(maxPoint, minPoint, (float)insteadPoint.temper)));
             insteadPoint = insteadPoint.next;
         }
         insteadPoint = lns1.first;
         while (insteadPoint != null)
         {
             verts.Add(insteadPoint.pos);
+            colors.Add(Color.Lerp(Color.red, Color.blue, CalInterpolate(maxPoint, minPoint, (float)insteadPoint.temper)));
             insteadPoint = insteadPoint.next;
         }
         int index0, index1, index2, index3;
@@ -500,77 +467,36 @@ public class MeshCreate : MonoBehaviour
         else
             return -ins;
     }
-    private Vector3 CenterOfCircle(List<DataList> overData)
+
+    private void CalMaxAndMin()
     {
-        int N = overData.Count / 3;
-        Vector3 point1 = overData[0].last.pos;
-        Vector3 point2 = overData[N].last.pos;
-        Vector3 point3 = overData[2 * N].last.pos;
-        Vector3 centerPoint = new Vector3();
-        float a1, b1, c1, d1;
-        float a2, b2, c2, d2;
-        float a3, b3, c3, d3;
-        float x1 = point1.x, y1 = point1.y, z1 = point1.z;
-        float x2 = point2.x, y2 = point2.y, z2 = point2.z;
-        float x3 = point3.x, y3 = point3.y, z3 = point3.z;
-
-        a1 = (y1 * z2 - y2 * z1 - y1 * z3 + y3 * z1 + y2 * z3 - y3 * z2);
-        b1 = -(x1 * z2 - x2 * z1 - x1 * z3 + x3 * z1 + x2 * z3 - x3 * z2);
-        c1 = (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
-        d1 = -(x1 * y2 * z3 - x1 * y3 * z2 - x2 * y1 * z3 + x2 * y3 * z1 + x3 * y1 * z2 - x3 * y2 * z1);
-
-        a2 = 2 * (x2 - x1);
-        b2 = 2 * (y2 - y1);
-        c2 = 2 * (z2 - z1);
-        d2 = x1 * x1 + y1 * y1 + z1 * z1 - x2 * x2 - y2 * y2 - z2 * z2;
-
-        a3 = 2 * (x3 - x1);
-        b3 = 2 * (y3 - y1);
-        c3 = 2 * (z3 - z1);
-        d3 = x1 * x1 + y1 * y1 + z1 * z1 - x3 * x3 - y3 * y3 - z3 * z3;
-
-        centerPoint.x = -(b1 * c2 * d3 - b1 * c3 * d2 - b2 * c1 * d3 + b2 * c3 * d1 + b3 * c1 * d2 - b3 * c2 * d1)
-        / (a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1);
-        centerPoint.y = (a1 * c2 * d3 - a1 * c3 * d2 - a2 * c1 * d3 + a2 * c3 * d1 + a3 * c1 * d2 - a3 * c2 * d1)
-            / (a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1);
-        centerPoint.z = -(a1 * b2 * d3 - a1 * b3 * d2 - a2 * b1 * d3 + a2 * b3 * d1 + a3 * b1 * d2 - a3 * b2 * d1)
-            / (a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1);
-
-        return centerPoint;
+        List<DataList> datalist = null;
+        for(int i = 0; i < data.faceData.Length; i++)
+        {
+            if (data.faceData[i] == null)
+                break;
+            datalist = data.faceData[i];
+            maxPoint = (float)datalist[0].first.temper;
+            minPoint = (float)datalist[0].first.temper;
+            for(int j = 0; j < datalist.Count; j++)
+            {
+                Node nowNode = datalist[j].first;
+                while(nowNode != null)
+                {
+                    if (nowNode.temper > maxPoint)
+                        maxPoint = (float)nowNode.temper;
+                    if (nowNode.temper < minPoint)
+                        minPoint = (float)nowNode.temper;
+                    nowNode = nowNode.next;
+                }
+            }
+        }
     }
-    private Vector3 CenterOfCircle(Vector3 point1,Vector3 point2,Vector3 point3)
+    private float CalInterpolate(float maxPoint, float minPoint, float x)
     {
-        Vector3 centerPoint = new Vector3();
-        float a1, b1, c1, d1;
-        float a2, b2, c2, d2;
-        float a3, b3, c3, d3;
-        float x1 = point1.x, y1 = point1.y, z1 = point1.z;
-        float x2 = point2.x, y2 = point2.y, z2 = point2.z;
-        float x3 = point3.x, y3 = point3.y, z3 = point3.z;
-
-        a1 = (y1 * z2 - y2 * z1 - y1 * z3 + y3 * z1 + y2 * z3 - y3 * z2);
-        b1 = -(x1 * z2 - x2 * z1 - x1 * z3 + x3 * z1 + x2 * z3 - x3 * z2);
-        c1 = (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
-        d1 = -(x1 * y2 * z3 - x1 * y3 * z2 - x2 * y1 * z3 + x2 * y3 * z1 + x3 * y1 * z2 - x3 * y2 * z1);
-
-        a2 = 2 * (x2 - x1);
-        b2 = 2 * (y2 - y1);
-        c2 = 2 * (z2 - z1);
-        d2 = x1 * x1 + y1 * y1 + z1 * z1 - x2 * x2 - y2 * y2 - z2 * z2;
-
-        a3 = 2 * (x3 - x1);
-        b3 = 2 * (y3 - y1);
-        c3 = 2 * (z3 - z1);
-        d3 = x1 * x1 + y1 * y1 + z1 * z1 - x3 * x3 - y3 * y3 - z3 * z3;
-
-        centerPoint.x = -(b1 * c2 * d3 - b1 * c3 * d2 - b2 * c1 * d3 + b2 * c3 * d1 + b3 * c1 * d2 - b3 * c2 * d1)
-        / (a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1);
-        centerPoint.y = (a1 * c2 * d3 - a1 * c3 * d2 - a2 * c1 * d3 + a2 * c3 * d1 + a3 * c1 * d2 - a3 * c2 * d1)
-            / (a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1);
-        centerPoint.z = -(a1 * b2 * d3 - a1 * b3 * d2 - a2 * b1 * d3 + a2 * b3 * d1 + a3 * b1 * d2 - a3 * b2 * d1)
-            / (a1 * b2 * c3 - a1 * b3 * c2 - a2 * b1 * c3 + a2 * b3 * c1 + a3 * b1 * c2 - a3 * b2 * c1);
-
-        return centerPoint;
+        float i = maxPoint - minPoint;
+        float j = x - minPoint;
+        float interpolate = j / i;
+        return interpolate;
     }
-
 }

@@ -13,6 +13,7 @@ public class ShaderCreate : MonoBehaviour
 {
     public Material materialTemper;
     public Material materialPress;
+    public Material UCLAGameLabWireframe;
     void Start()
     {
 
@@ -29,5 +30,9 @@ public class ShaderCreate : MonoBehaviour
     public void GetPressShader()
     {
         GetComponent<Renderer>().material = materialPress;
+    }
+    public void GetMeshShader()
+    {
+        GetComponent<Renderer>().material = UCLAGameLabWireframe;
     }
 }
