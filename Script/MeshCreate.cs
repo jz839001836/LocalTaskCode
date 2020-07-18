@@ -26,6 +26,8 @@ public class MeshCreate : MonoBehaviour
     public List<Vector3> verts;//顶点位置
     List<int> indices;  //顶点顺序
     List<Color> colors; //顶点颜色
+    List<string> fileNames;
+    int fileIndex = 0;
 
     DataList rowsOfData;         //某一行的点数据
     List<DataList> overAllData;  //外侧面所有的点数据,每个元素存放每行的点数据链表
@@ -44,46 +46,70 @@ public class MeshCreate : MonoBehaviour
     int downSide = 0;  //下行的顺序
     int upSide;    //上行的顺序
 
-    float maxPoint;    //某个值最大的点
-    float minPoint;    //某个值最小的点
+    public float maxPress = 2392;    //某个值最大的点
+    public float minPress = 2383;    //某个值最小的点
     private void Start()
     {
+        Initialize();
+        //GenerateSubdivision(fileNames[fileIndex]);
+        Generate(fileNames[fileIndex]);
+    }
+    float i;  //用于帧数计数
+    private void Update()
+    {
+        //if (i >= 1)
+        //{
+        //    Generate(fileNames[fileIndex]);
+        //    fileIndex++;
+        //    if (fileIndex == fileNames.Count)
+        //        Time.timeScale = 0;
+        //    i = 0;
+        //}
+        //i += Time.deltaTime;
+    }
+
+    //数据初始化
+    private void Initialize()
+    {
+        meshFilter = GetComponent<MeshFilter>();
+        meshRenderer = GetComponent<MeshRenderer>();
+        meshCollider = GetComponent<MeshCollider>();
+        fileNames = new List<string>();
+        string path = UnityEditor.EditorUtility.OpenFolderPanel("打开文件", "", "");
+        string[] files = Directory.GetFiles(path);
+        foreach (string file in files)
+        {
+            if (file.EndsWith(".pbsi"))
+                fileNames.Add(file);
+        }
+        mesh = new Mesh();
+    }
+    private void Generate(string filename)
+    {
+        mesh.Clear();
+        downSide = 0;
+        upSide = 0;
+        //读取数据
+        data = new Data(filename);
+        data.Read();
+        CalMaxAndMin();
+
         verts = new List<Vector3>();
         indices = new List<int>();
         colors = new List<Color>();
-
         rowsOfData = new DataList();
         overAllData = new List<DataList>();
         overAllData1 = new List<DataList>();
         overAllData2 = new List<DataList>();
         overAllData3 = new List<DataList>();
-        meshFilter = GetComponent<MeshFilter>();
-        meshRenderer = GetComponent<MeshRenderer>();
-        meshCollider = GetComponent<MeshCollider>();
-        Generate();
-    }
-    private void Update()
-    {
-        
-    }
-    private void Generate()
-    {
-        //读取数据
-        //ReadData();
-        data = new Data();
-        data.Read();
-        CalMaxAndMin();
 
         //填写数据
         AddMeshData(data.faceData[1]);        //外侧面的网格划分
         if (data.faceData[3] != null)
-        {
             AddMeshData1(data.faceData[3]);      //内侧面的网格划分
-        }
         NewMergePoint(data.faceData[0], 1);  //下端面的网格划分
         NewMergePoint(data.faceData[2], 2);  //上端面的网格划分
-        mesh = new Mesh();
-        mesh.vertices = verts.ToArray();
+        mesh.SetVertices(verts);
         mesh.triangles = indices.ToArray();
         mesh.colors = colors.ToArray();
         mesh.RecalculateNormals();
@@ -92,8 +118,39 @@ public class MeshCreate : MonoBehaviour
         //碰撞体专用mesh，只负责物体的碰撞外形
         meshCollider.sharedMesh = mesh;
     }
+    private void GenerateSubdivision(string filename)
+    {
+        mesh.Clear();
+        downSide = 0;
+        upSide = 0;
+        //读取数据
+        data = new Data(filename);
+        data.Read();
+        CalMaxAndMin();
+
+        verts = new List<Vector3>();
+        indices = new List<int>();
+        colors = new List<Color>();
+        rowsOfData = new DataList();
+        overAllData = new List<DataList>();
+        overAllData1 = new List<DataList>();
+        overAllData2 = new List<DataList>();
+        overAllData3 = new List<DataList>();
+
+        DivisionOuter(data.faceData[1]);
+        DivisionInside(data.faceData[3]);
+        mesh.SetVertices(verts);
+        mesh.triangles = indices.ToArray();
+        mesh.colors = colors.ToArray();
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        meshFilter.mesh = mesh;
+        //碰撞体专用mesh，只负责物体的碰撞外形
+        meshCollider.sharedMesh = mesh;
+    }
+    //外侧面的网格划分
     private void AddMeshData(List<DataList> overData)
-    {//外侧面的网格划分
+    {
         MergePoint(overData);
         upSide += overData[1].Size;
         int index0,index1,index2,index3;
@@ -121,8 +178,9 @@ public class MeshCreate : MonoBehaviour
         }
         downSide = upSide;
     }
+    //内端面的网格划分
     private void AddMeshData1(List<DataList> overData)
-    {//内端面的网格划分
+    {
         MergePoint(overData);
         upSide += overData[1].Size;
         int index0, index1, index2, index3;
@@ -149,6 +207,171 @@ public class MeshCreate : MonoBehaviour
             downSide++;
         }
         downSide = upSide;
+    }
+    //切分网格的节点
+    private void DivideMergePoint(List<DataList> overData)
+    {//用于计算侧面
+        int min = overData[0].Size;                    //所有顶点行中点数量最小的数量
+        int minLine = 0;                                  //顶点行中点数量最小的一行
+        for (int i = 1; i < overData.Count; i++)
+        {//找出所有点集中数量最少的一行
+            if (min > overData[i].Size)
+            {
+                min = overData[i].Size;
+                minLine = i;
+            }
+        }
+        //向下合并
+        for (int downCount = minLine - 1; downCount >= 0; downCount--)
+        {//以minLine为准向下进行点合并,downCount为当前进行合并的行数
+            int insteadMin = min;
+            if (overData[downCount].Size == min)
+                continue;  //如果点数据数量与最小量相同，则不需要进行合并
+            insteadLine = new DataList();
+            insteadLine.Enqueue(overData[downCount].first);//先向insteadLine插入第一个点
+            upPoint = overData[downCount + 1].first.next; //上一行点击的第二个点开始
+            downPoint = overData[downCount].first.next;   //下一行点集的第二个点开始
+            int downNum = overData[downCount].Size - 1;  //当前进行合并行的剩余点数量
+            while (upPoint != null)
+            {
+                if (downPoint.next == null)
+                {//当downPoint为最后一个点时，直接插入insteadLine;
+                    upPoint = upPoint.next;
+                    insteadLine.Enqueue(downPoint);
+                }
+                if (Distance2(downPoint.pos, upPoint.pos) >=
+                   Distance2(downPoint.next.pos, upPoint.pos))
+                {//点集的合并，选择最优点，删除不必要的点
+                    downPoint = downPoint.next;
+                    downNum--;
+                }
+                else
+                {
+                    upPoint = upPoint.next;
+                    insteadMin--;
+                    insteadLine.Enqueue(downPoint);
+                    downPoint = downPoint.next;
+                    downNum--;
+                }
+                if (downNum == insteadMin - 1)
+                {
+                    while (downPoint != null)
+                    {
+                        insteadLine.Enqueue(downPoint);
+                        downPoint = downPoint.next;
+                        upPoint = upPoint.next;
+                    }
+                }
+            }
+            overData[downCount] = insteadLine;
+        }
+        //向上合并...
+        for (int upCount = minLine + 1; upCount < overData.Count; upCount++)
+        {//以minLine为准向上进行点合并,upCount为当前进行合并的行数
+            int insteadMin = min;
+            if (overData[upCount].Size == min)
+                continue;
+            insteadLine = new DataList();
+            insteadLine.Enqueue(overData[upCount].first);
+            upPoint = overData[upCount].first.next;        //上一行点集的第二个点开始
+            downPoint = overData[upCount - 1].first.next;  //下一行点集的第二个点开始
+            int upNum = overData[upCount].Size - 1;
+            while (downPoint != null)
+            {
+                if (upPoint.next == null)
+                {//当upPoint为最后一个点时，直接插入insteadLine;
+                    downPoint = downPoint.next;
+                    insteadLine.Enqueue(upPoint);
+                }
+                if (Distance2(upPoint.pos, downPoint.pos) >=
+                   Distance2(upPoint.next.pos, downPoint.pos))
+                {
+                    upPoint = upPoint.next;
+                    upNum--;
+                }
+                else
+                {
+                    downPoint = downPoint.next;
+                    insteadMin--;
+                    insteadLine.Enqueue(upPoint);
+                    upPoint = upPoint.next;
+                    upNum--;
+                }
+                if (upNum == insteadMin - 1)
+                {
+                    while (upPoint != null)
+                    {
+                        insteadLine.Enqueue(upPoint);
+                        upPoint = upPoint.next;
+                        downPoint = downPoint.next;
+                    }
+                }
+            }
+            overData[upCount] = insteadLine;
+        }
+        //将点数据输入到verts中
+        for (int i = 0; i < overData.Count; i++)
+        {
+            int j;
+            insteadPoint = overData[i].first;
+            for (j = 0; j < overData[i].Size / 2; j++)
+            {
+                verts.Add(insteadPoint.pos);
+                colors.Add(Color.Lerp(Color.blue, Color.red, CalInterpolate(maxPress, minPress, (float)insteadPoint.temper)));
+                insteadPoint = insteadPoint.next;
+            }
+
+        }
+    }
+    //外侧面切分网格
+    private void DivisionOuter(List<DataList> overData)
+    {
+        DivideMergePoint(overData);
+        upSide += overData[1].Size / 2;
+        int index0, index1, index2, index3;
+        for (int serialNum = 0; serialNum < overData.Count - 1; serialNum++)
+        {
+            for (int i = 0; i < overData[serialNum].Size / 2 - 1; i++)
+            {
+                index0 = downSide++;      //左下
+                index1 = upSide++;        //左上
+                index2 = upSide;          //右上
+                index3 = downSide;        //右下
+
+                indices.Add(index0); indices.Add(index1); indices.Add(index2);
+                indices.Add(index0); indices.Add(index2); indices.Add(index3);
+            }
+            upSide++;
+            downSide++;
+        }
+        downSide = upSide;
+    }
+    //内侧面切分网格
+    private void DivisionInside(List<DataList> overData)
+    {
+        DivideMergePoint(overData);
+        upSide += overData[1].Size / 2;
+        int index0, index1, index2, index3;
+        for (int serialNum = 0; serialNum < overData.Count - 1; serialNum++)
+        {
+            for (int i = 0; i < overData[serialNum].Size / 2 - 1; i++)
+            {
+                index0 = downSide++;      //左下
+                index1 = upSide++;        //左上
+                index2 = upSide;          //右上
+                index3 = downSide;        //右下
+
+                indices.Add(index0); indices.Add(index2); indices.Add(index1);
+                indices.Add(index0); indices.Add(index3); indices.Add(index2);
+            }
+            upSide++;
+            downSide++;
+        }
+        downSide = upSide;
+    }
+    private void InsideAndOuterConnect(List<DataList> outer, List<DataList> Inside)
+    {
+
     }
     //向verts中添加点，若上下两层点数不同，则进行合并操作
     private void MergePoint(List<DataList> overData)
@@ -258,7 +481,7 @@ public class MeshCreate : MonoBehaviour
             while (insteadPoint != null)
             {
                 verts.Add(insteadPoint.pos);
-                colors.Add(Color.Lerp(Color.red, Color.blue, CalInterpolate(maxPoint, minPoint, (float)insteadPoint.temper)));
+                colors.Add(Color.Lerp(Color.blue, Color.red, CalInterpolate(maxPress, minPress, (float)insteadPoint.temper)));
                 insteadPoint = insteadPoint.next;
             }
         }
@@ -269,7 +492,7 @@ public class MeshCreate : MonoBehaviour
         int upNum;
         int downNum;
         Vector3 center = overData[0].last.pos;
-        Vector3 centerPoint = new Vector3(0, center.y, 0);
+        Vector3 centerPoint = new Vector3(center.x, 0, 0);
         for (int i = 0; i < overData.Count; i++)
         {
             insteadLine = new DataList();
@@ -391,14 +614,14 @@ public class MeshCreate : MonoBehaviour
             //if(insteadPoint.next!=null && Vector3.Distance(insteadPoint.pos,insteadPoint.next.pos) > distance)
             //  breakpoint.Add(verts.Count);
             verts.Add(insteadPoint.pos);
-            colors.Add(Color.Lerp(Color.red, Color.blue, CalInterpolate(maxPoint, minPoint, (float)insteadPoint.temper)));
+            colors.Add(Color.Lerp(Color.blue, Color.red, CalInterpolate(maxPress, minPress, (float)insteadPoint.temper)));
             insteadPoint = insteadPoint.next;
         }
         insteadPoint = lns1.first;
         while (insteadPoint != null)
         {
             verts.Add(insteadPoint.pos);
-            colors.Add(Color.Lerp(Color.red, Color.blue, CalInterpolate(maxPoint, minPoint, (float)insteadPoint.temper)));
+            colors.Add(Color.Lerp(Color.blue, Color.red, CalInterpolate(maxPress, minPress, (float)insteadPoint.temper)));
             insteadPoint = insteadPoint.next;
         }
         int index0, index1, index2, index3;
@@ -471,22 +694,22 @@ public class MeshCreate : MonoBehaviour
     private void CalMaxAndMin()
     {
         List<DataList> datalist = null;
-        for(int i = 0; i < data.faceData.Length; i++)
+        for (int i = 0; i < data.faceData.Length; i++)
         {
             if (data.faceData[i] == null)
                 break;
             datalist = data.faceData[i];
-            maxPoint = (float)datalist[0].first.temper;
-            minPoint = (float)datalist[0].first.temper;
-            for(int j = 0; j < datalist.Count; j++)
+            maxPress = (float)datalist[0].first.temper;
+            minPress = (float)datalist[0].first.temper;
+            for (int j = 0; j < datalist.Count; j++)
             {
                 Node nowNode = datalist[j].first;
-                while(nowNode != null)
+                while (nowNode != null)
                 {
-                    if (nowNode.temper > maxPoint)
-                        maxPoint = (float)nowNode.temper;
-                    if (nowNode.temper < minPoint)
-                        minPoint = (float)nowNode.temper;
+                    if (nowNode.temper > maxPress)
+                        maxPress = (float)nowNode.temper;
+                    if (nowNode.temper < minPress)
+                        minPress = (float)nowNode.temper;
                     nowNode = nowNode.next;
                 }
             }

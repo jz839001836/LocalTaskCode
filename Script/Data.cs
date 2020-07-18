@@ -14,7 +14,8 @@ using UnityEngine;
 
 public class Data
 {
-    string fileName = UnityEditor.EditorUtility.OpenFilePanel("打开文件", "", "pbsi");
+    string fileName;
+    //string fileName = UnityEditor.EditorUtility.OpenFilePanel("打开文件", "", "pbsi");
     BinaryReader read;
     public int step;            //推移的步数
     public double stepLength;   //推移单位时间步长
@@ -64,6 +65,10 @@ public class Data
     DataList datalist;
     public List<DataList>[] faceData;
     byte[] buffer;
+    public Data(string file)
+    {
+        fileName = file;
+    }
     public void Read()
     {
         int faceNum = 0;
@@ -122,12 +127,12 @@ public class Data
                     float a = (float)read.ReadDouble();
                     float b = (float)read.ReadDouble();
                     float c = (float)read.ReadDouble();
-                    point.pos = new Vector3(a, c, b);
+                    point.pos = new Vector3(-c, a, b);
 
                     a = (float)read.ReadDouble();
                     b = (float)read.ReadDouble();
                     c = (float)read.ReadDouble();
-                    point.nor = new Vector3(a, c, b);
+                    point.nor = new Vector3(-c, a, b);
 
                     point.judgeEdgePoint = read.ReadBoolean();
                     point.judgeDisappear = read.ReadInt16();

@@ -22,7 +22,7 @@ public class ClickMove : MonoBehaviour
     {
         if(Input.GetAxis("Mouse ScrollWheel") < 0 )
         {
-            if (Camera.main.fieldOfView <= 100)
+            if (Camera.main.fieldOfView <= 10000)
                 Camera.main.fieldOfView += 5;
             else if (Camera.main.fieldOfView <= 20)
                 Camera.main.fieldOfView += 0.5f;

@@ -43,7 +43,7 @@ Shader "Unlit/Shader"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.worldNormal = mul(v.normal, (float3x3)unity_WorldToObject);
                 o.color = v.color;
-
+                
                 return o;
             }
 
