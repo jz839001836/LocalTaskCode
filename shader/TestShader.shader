@@ -1,16 +1,15 @@
-﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
+﻿// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
 
 Shader "Unlit/Shader"
 {
     Properties{
-    _Diffuse("Diffuse", Color) = (0,0,0,0)
+    _Diffuse("Diffuse", Color) = (1,1,1,1)
     }
         SubShader
     {
-        Tags { "RenderType" = "Opaque" }
+        Tags { "LightMode" = "ForwardBase" }
         LOD 200
 
         Pass
@@ -27,33 +26,30 @@ Shader "Unlit/Shader"
             {
                 float4 vertex : POSITION;
                 float3 normal : NORMAL;
-                fixed4 color : COLOR;
+                fixed3 color : COLOR;
             };
 
             struct v2f
             {
                 float4 pos : SV_POSITION;
-                float3 worldNormal : TEXCOORD0;
-                fixed4 color : COLOR;
+                fixed3 color : COLOR;
             };
 
             v2f vert(a2v v)
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-                o.worldNormal = mul(v.normal, (float3x3)unity_WorldToObject);
-                o.color = v.color;
-                
+                fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz;
+                fixed3 worldNormal = normalize(mul(v.normal, (float3x3)unity_WorldToObject));
+                fixed3 worldLight = normalize(_WorldSpaceLightPos0.xyz);
+                fixed3 diffuse = _LightColor0.rgb * _Diffuse.rgb * saturate(dot(worldNormal, worldLight));
+                o.color = ambient + diffuse + v.color;
                 return o;
             }
 
             fixed4 frag(v2f i) : SV_Target
             {
-                fixed3 worldNormal = normalize(i.worldNormal);
-                fixed3 worldLightDir = normalize(_WorldSpaceLightPos0.xyz);
-                fixed3 diffuse = _LightColor0.rgb * _Diffuse.rgb * saturate(dot(worldNormal, worldLightDir));
-                fixed3 color = diffuse + i.color;
-                return fixed4(color, 1.0);
+                return fixed4(i.color, 1.0);
             }
 
                 ENDCG

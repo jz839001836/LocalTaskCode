@@ -7,6 +7,8 @@ Shader "Unlit/Shader"
 {
     Properties{
     _Diffuse("Diffuse", Color) = (0,0,0,0)
+
+    
     }
         SubShader
     {
